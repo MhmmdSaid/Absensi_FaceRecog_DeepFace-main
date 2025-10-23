@@ -1,4 +1,4 @@
-const API_BASE_URL = "http://127.0.0.1:8000";
+const API_BASE_URL = "http://10.83.250.157:8000";
 const statusArea = document.getElementById("statusArea");
 const attendanceTableBody = document.getElementById("attendanceTableBody");
 const refreshDataBtn = document.getElementById("refreshDataBtn");

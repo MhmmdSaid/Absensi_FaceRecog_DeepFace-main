@@ -1,6 +1,6 @@
 // settings.js (Versi Perbaikan)
 
-const API_BASE_URL = "http://127.0.0.1:8000";
+const API_BASE_URL = "http://10.83.250.157:8000";
 
 // --- DEKLARASI FUNGSI ---
 // Kita biarkan fungsi-fungsi ini di luar agar 'window.onload' rapi.

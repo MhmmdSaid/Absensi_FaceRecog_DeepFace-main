@@ -1,4 +1,4 @@
-const API_BASE_URL = "http://127.0.0.1:8000"; // Pastikan IP/Port sesuai
+const API_BASE_URL = "http://10.83.250.157:8000"; // Pastikan IP/Port sesuai
 const videoElement = document.getElementById("videoElement");
 const canvasElement = document.getElementById("canvasElement"); // Untuk snapshot
 const overlayCanvas = document.getElementById("overlayCanvas"); // Untuk MediaPipe
