@@ -1,0 +1,45 @@
+services:
+  # Service 1: Database (PostgreSQL + pgvector)
+  postgres:
+    image: ankane/pgvector:latest
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: macbookpro
+      POSTGRES_PASSWORD: deepfacepass
+      POSTGRES_DB: intern_attendance_db
+      # TZ: Asia/Jakarta #waktu lokal wib
+    ports:
+      # Port 5435 di Mac Anda akan terhubung ke port 5432 di dalam container
+      - "5435:5432"
+    # WAJIB: Healthcheck memastikan DB siap sebelum API berjalan
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # Service 2: API (Python/FastAPI kita)
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432  # <-- PENTING: Gunakan port internal DB (5432)
+      DB_USER: macbookpro
+      DB_PASSWORD: deepfacepass
+      DB_NAME: intern_attendance_db
+      #TZ: Asia/Jakarta  # waktu lokal wib
+      # ------------------------------------------
+    volumes:
+      - .:/app
+    depends_on:
+      # PENTING: Tunggu sampai healthcheck postgres 'healthy'
+      postgres:
+        condition: service_healthy
+    restart: always
+
+volumes:
+  postgres_data:

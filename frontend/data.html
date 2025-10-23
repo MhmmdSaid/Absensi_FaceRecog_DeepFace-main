@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-R" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Data Absensi Hari Ini - DeepFace</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+
+  <body class="layout-body">
+    <header class="layout-header">
+      <div class="header-logo">
+        <img src="png/telkomsat.png" alt="Telkomsat" />
+      </div>
+    </header>
+
+    <aside class="layout-sidebar">
+      <a href="main.html" class="sidebar-link">
+        <img src="png/absen.png" alt="Absensi" class="sidebar-icon" />
+        Absensi Wajah
+      </a>
+
+      <a href="data.html" class="sidebar-link active">
+        <img src="png/data.png" alt="Data Absensi" class="sidebar-icon" />
+        Data Absensi Hari Ini
+      </a>
+
+      <a href="data_collector.html" class="sidebar-link">
+        <img src="png/collector.png" alt="Data Collector" class="sidebar-icon" />
+        Data Collector
+      </a>
+
+      <a href="settings.html" class="sidebar-link">
+        <img src="png/database.png" alt="Settings" class="sidebar-icon" />
+        Pengaturan & Indexing
+      </a>
+    </aside>
+
+    <main class="layout-main container-card">
+      <div class="content-header">
+        <h2>Data Absensi Hari Ini</h2>
+        <button id="refreshDataBtn" class="btn-refresh bg-blue-500 hover:bg-blue-600">
+          Refresh Data
+        </button>
+      </div>
+
+      <div id="statusArea" class="status-area">Memuat data absensi...</div>
+
+      <div id="photoUrlInfo" class="text-sm text-gray-500 mb-4 break-words hidden"></div>
+
+      <div class="table-container">
+        <table class="min-w-full">
+          <thead>
+            <tr>
+              <th>No.</th>
+              <th>Nama</th>
+              <th>Instansi</th>
+              <th>Kategori</th>
+              <th>Status Absen</th>
+              <th>Waktu Absen Terakhir</th>
+              <th>Jarak Vektor</th>
+              <th>Foto</th>
+            </tr>
+          </thead>
+          <tbody id="attendanceTableBody">
+            </tbody>
+        </table>
+      </div>
+    </main>
+
+    <footer class="layout-footer">
+      &copy; 2025 Telkomsat Bogor
+    </footer>
+
+    <script src="data.js"></script>
+  </body>
+</html>

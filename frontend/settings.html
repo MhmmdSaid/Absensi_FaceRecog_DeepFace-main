@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pengaturan & Indexing - DeepFace</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+
+  <body class="layout-body">
+    <header class="layout-header">
+      <div class="header-logo">
+        <img src="png/telkomsat.png" alt="Telkomsat" />
+      </div>
+    </header>
+
+    <aside class="layout-sidebar">
+      <a href="main.html" class="sidebar-link">
+        <img src="png/absen.png" alt="Absensi" class="sidebar-icon" />
+        Absensi Wajah
+      </a>
+
+      <a href="data.html" class="sidebar-link">
+        <img src="png/data.png" alt="Data Absensi" class="sidebar-icon" />
+        Data Absensi Hari Ini
+      </a>
+
+      <a href="data_collector.html" class="sidebar-link">
+        <img src="png/collector.png" alt="Data Collector" class="sidebar-icon" />
+        Data Collector
+      </a>
+
+      <a href="settings.html" class="sidebar-link active">
+        <img src="png/database.png" alt="Settings" class="sidebar-icon" />
+        Pengaturan & Indexing
+      </a>
+    </aside>
+
+    <main class="layout-main container-card">
+      <div class="content-header">
+        <h2>Pengaturan Sistem & Database Wajah</h2>
+        <button id="reloadButton" class="btn-refresh bg-yellow-500 hover:bg-yellow-600">
+          Sinkronisasi Database
+        </button>
+      </div>
+
+      <div id="statusArea" class="status-area">Memuat data wajah terdaftar...</div>
+
+      <div class="grid grid-cols-2 gap-4 mb-8">
+        <div class="p-4 border rounded-lg shadow-md bg-white">
+          <h3 class="font-semibold text-lg mb-2 text-blue-600">Reset Log Absensi Harian</h3>
+          <p class="text-sm text-gray-600 mb-3">Absensi akan otomatis direset oleh sistem setiap pukul 00:00 malam. Tidak diperlukan reset manual.</p>
+          <div class="bg-blue-100 text-blue-700 font-bold py-2 px-4 rounded-md w-full text-center">
+            RESET OTOMATIS AKTIF
+          </div>
+        </div>
+        
+        <div class="p-4 border rounded-lg shadow-md bg-white">
+          <h3 class="font-semibold text-lg mb-2 text-blue-600">Jalankan Indexing Manual</h3>
+          <p class="text-sm text-gray-600 mb-3">Tekan tombol ini untuk memindai folder 'data/dataset' dan memproses wajah baru ke database.</p>
+          <button id="startIndexingButton" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-md w-full transition duration-300 disabled:bg-gray-400">
+            Mulai Proses Indexing
+          </button>
+        </div>
+        </div>
+
+      <h3 class="font-semibold text-xl mb-4 text-gray-800">Daftar Wajah Terdaftar di Sistem</h3>
+      <div class="table-container">
+        <table class="min-w-full">
+          <thead>
+            <tr>
+              <th>No.</th>
+              <th>Nama</th>
+              <th>Jumlah Gambar</th>
+              <th>Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="facesTableBody">
+            </tbody>
+        </table>
+      </div>
+    </main>
+
+    <footer class="layout-footer">
+      &copy; 2025 Telkomsat Bogor
+    </footer>
+
+    <script src="settings.js"></script>
+  </body>
+</html>
