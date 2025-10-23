@@ -13,8 +13,16 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 # 4. Salin daftar belanjaan (requirements.txt) dan instal
+# COPY tensorflow-2.8.0-cp39-cp39-linux_x86_64.whl .
+# RUN pip install --ignore-installed --upgrade tensorflow-2.8.0-cp39-cp39-linux_x86_64.whl 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+
+COPY tensorflow-2.8.0-cp39-cp39-linux_x86_64.whl .
+RUN pip install --ignore-installed --upgrade tensorflow-2.8.0-cp39-cp39-linux_x86_64.whl
+
+RUN pip install protobuf==3.20.1
+RUN pip install numpy==1.23.5 --force-reinstall
 
 # 5. Salin seluruh kode proyek Anda ke dalam container
 COPY . .
