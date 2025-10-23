@@ -98,8 +98,8 @@ local_tz = pytz.timezone('Asia/Jakarta') # <<< TAMBAH: Global Timezone (WIB)
 
 # --- KONFIGURASI SCHEDULER ---
 scheduler = None
-DAILY_RESET_HOUR = 00 # Pukul 00:00
-DAILY_RESET_MINUTE = 00
+DAILY_RESET_HOUR = 9 # Pukul 00:00
+DAILY_RESET_MINUTE = 56
 # ---
 
 # --- INISIALISASI APLIKASI ---
@@ -143,7 +143,7 @@ def format_time_to_hms(time_obj) -> str:
             dt = datetime.fromisoformat(time_obj)
             # Jika tidak ada timezone, anggap UTC dan konversi ke WIB
             if dt.tzinfo is None or dt.tzinfo.utcoffset(dt) is None:
-                 dt = pytz.utc.localize(dt).astimezone(local_tz)
+                 dt = local_tz.localize(dt)
             else:
                  dt = dt.astimezone(local_tz) # Konversi jika sudah ada timezone
             return dt.strftime("%H:%M:%S")
@@ -631,10 +631,10 @@ async def get_today_attendance():
         attendance_list = []
         for name, instansi, kategori, time_obj, image_url, log_type in results:
             log_datetime_wib = time_obj # Asumsi DB menyimpan UTC atau tanpa TZ
-            # Jika DB menyimpan tanpa TZ, kita anggap itu UTC lalu konversi ke WIB
-            # Jika sudah ada TZ, astimezone akan menanganinya
+            # time_obj adalah 'naive' datetime dari DB (misal: 08:34)
+            # Karena DB kita disetel ke WIB, kita anggap waktu 'naive' itu SUDAH WIB.
             if time_obj.tzinfo is None or time_obj.tzinfo.utcoffset(time_obj) is None:
-                log_datetime_wib = pytz.utc.localize(time_obj).astimezone(local_tz)
+                log_datetime_wib = local_tz.localize(time_obj)
             else:
                 log_datetime_wib = time_obj.astimezone(local_tz)
 
