@@ -10,7 +10,7 @@ try:
     file_path = Path(__file__).resolve()
     
     # 2. Dapatkan parent dari 'backend', yaitu '/app'
-    PROJECT_ROOT = file_path.parent.parent 
+    PROJECT_ROOT = file_path.parent.parent
     
     # 3. Tambahkan '/app' ke sys.path
     sys.path.insert(0, str(PROJECT_ROOT))
@@ -21,17 +21,25 @@ try:
 except ImportError as e:
     # Ini akan menangkap jika utils.py benar-benar hilang
     print(f"❌ FATAL ERROR: Gagal mengimpor utilitas: {e}")
-    print("   -> Pastikan file utils.py ada di backend/utils.py")
+    print("     -> Pastikan file utils.py ada di backend/utils.py")
     sys.exit(1)
+except NameError:
+    # Fallback jika dijalankan di lingkungan non-file (misal: notebook)
+    print("⚠️ Peringatan: __file__ tidak terdefinisi. Menggunakan CWD sebagai PROJECT_ROOT.")
+    PROJECT_ROOT = Path.cwd()
+    # Asumsi dimensi default jika utils gagal
+    EMBEDDING_DIM = 512
+    print(f"     -> Menggunakan fallback: EMBEDDING_DIM={EMBEDDING_DIM}")
 
 # --- KONFIGURASI DATABASE VEKTOR (MEMBACA DARI ENV) ---
-# Memuat .env untuk eksekusi LOKAL (dari Mac)
-env_path = PROJECT_ROOT.parent / '.env'  # .env ada di level atas (PROJECT_ROOT)
+# Memuat .env untuk eksekusi LOKAL
+# PERBAIKAN: .env file seharusnya ada di PROJECT_ROOT, bukan di parent-nya.
+env_path = PROJECT_ROOT / '.env'  # <-- PERBAIKAN DI SINI
 if env_path.exists():
     load_dotenv(dotenv_path=env_path)
-    print(f"   -> Memuat konfigurasi dari {env_path}")
+    print(f"     -> Memuat konfigurasi dari {env_path}")
 else:
-    print(f"   ⚠️ PERINGATAN: File .env tidak ditemukan di {env_path}, menggunakan fallback.")
+    print(f"     ⚠️ PERINGATAN: File .env tidak ditemukan di {env_path}, menggunakan fallback/env OS.")
 
 DB_HOST = os.getenv("DB_HOST", "localhost")
 DB_PORT = os.getenv("DB_PORT", "5432")
@@ -59,8 +67,8 @@ def connect_db():
         return conn
     except psycopg2.Error as e:
         print(f"❌ FATAL: Gagal koneksi ke Database: {e}")
-        print(f"   -> Mencoba terhubung ke {DB_HOST}:{DB_PORT}...")
-        print("   -> Pastikan .env Anda benar (DB_PORT=5435) dan Docker berjalan.")
+        print(f"     -> Mencoba terhubung ke {DB_USER}@{DB_HOST}:{DB_PORT}...")
+        print("     -> Pastikan .env Anda benar dan layanan DB (misal: Docker) berjalan.")
         sys.exit(1)
 
 
@@ -73,24 +81,24 @@ def setup_database():
     print("==================================================")
 
     try:
-        print("   -> Memastikan ekstensi 'vector' aktif...")
+        print("     -> Memastikan ekstensi 'vector' aktif...")
         cur.execute("CREATE EXTENSION IF NOT EXISTS vector;")
         conn.commit()
         print("✅ Ekstensi 'vector' aktif.")
 
-        print("   -> Menghapus tabel anak (jika ada)...")
+        print("     -> Menghapus tabel anak (jika ada)...")
         cur.execute(f"DROP TABLE IF EXISTS {DB_TABLE_LOGS} CASCADE;") # Gunakan CASCADE
         cur.execute(f"DROP TABLE IF EXISTS {DB_TABLE_EMBEDDINGS} CASCADE;")
         cur.execute(f"DROP TABLE IF EXISTS {DB_TABLE_CENTROIDS} CASCADE;")
         conn.commit()
         print("✅ Tabel anak dihapus.")
 
-        print("   -> Menghapus tabel induk (jika ada)...")
+        print("     -> Menghapus tabel induk (jika ada)...")
         cur.execute(f"DROP TABLE IF EXISTS {DB_TABLE_INTERNS} CASCADE;")
         conn.commit()
         print("✅ Tabel induk dihapus.")
 
-        print("\n   -> Membuat ulang tabel induk 'interns'...")
+        print("\n     -> Membuat ulang tabel induk 'interns'...")
         cur.execute(f"""
             CREATE TABLE {DB_TABLE_INTERNS} (
                 id SERIAL PRIMARY KEY,
@@ -102,42 +110,42 @@ def setup_database():
         conn.commit()
         print(f"✅ Tabel '{DB_TABLE_INTERNS}' berhasil dibuat.")
 
-        print("   -> Membuat ulang tabel 'attendance_logs'...")
+        print("     -> Membuat ulang tabel 'attendance_logs'...")
         cur.execute(f"""
             CREATE TABLE {DB_TABLE_LOGS} (
                 log_id SERIAL PRIMARY KEY,
-                intern_id INTEGER REFERENCES {DB_TABLE_INTERNS}(id) ON DELETE CASCADE, -- Tambah ON DELETE CASCADE
+                intern_id INTEGER REFERENCES {DB_TABLE_INTERNS}(id) ON DELETE CASCADE,
                 intern_name TEXT NOT NULL,
                 instansi TEXT,
                 kategori TEXT,
                 image_url TEXT,
-                absent_at TIMESTAMP WITHOUT TIME ZONE, -- Hapus DEFAULT LOCALTIMESTAMP
+                absent_at TIMESTAMP WITHOUT TIME ZONE,
                 type TEXT NOT NULL DEFAULT 'IN'
             );
         """)
         conn.commit()
         print(f"✅ Tabel '{DB_TABLE_LOGS}' berhasil dibuat.")
 
-        print("   -> Membuat ulang tabel 'intern_embeddings'...")
+        print("     -> Membuat ulang tabel 'intern_embeddings'...")
         cur.execute(f"""
             CREATE TABLE {DB_TABLE_EMBEDDINGS} (
                 id SERIAL PRIMARY KEY,
-                intern_id INTEGER REFERENCES {DB_TABLE_INTERNS}(id) ON DELETE CASCADE, -- Tambah ON DELETE CASCADE
+                intern_id INTEGER REFERENCES {DB_TABLE_INTERNS}(id) ON DELETE CASCADE,
                 name VARCHAR(100) NOT NULL,
                 instansi VARCHAR(100),
                 kategori VARCHAR(100),
-                file_path TEXT NOT NULL UNIQUE, -- Tambah UNIQUE constraint? Atau hapus jika path bisa sama?
+                file_path TEXT NOT NULL UNIQUE, -- Menambahkan UNIQUE untuk integritas data
                 embedding vector({EMBEDDING_DIM}) NOT NULL
             );
         """)
         conn.commit()
         print(f"✅ Tabel '{DB_TABLE_EMBEDDINGS}' berhasil dibuat (vector size: {EMBEDDING_DIM}).")
 
-        print("   -> Membuat ulang tabel 'intern_centroids'...")
+        print("     -> Membuat ulang tabel 'intern_centroids'...")
         cur.execute(f"""
             CREATE TABLE {DB_TABLE_CENTROIDS} (
                 id SERIAL PRIMARY KEY,
-                intern_id INTEGER REFERENCES {DB_TABLE_INTERNS}(id) ON DELETE CASCADE UNIQUE, -- Tambah ON DELETE CASCADE
+                intern_id INTEGER REFERENCES {DB_TABLE_INTERNS}(id) ON DELETE CASCADE UNIQUE,
                 name TEXT NOT NULL UNIQUE,
                 instansi TEXT,
                 kategori TEXT,

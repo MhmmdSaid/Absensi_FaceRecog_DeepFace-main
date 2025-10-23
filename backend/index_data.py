@@ -6,12 +6,19 @@ from deepface import DeepFace
 import numpy as np
 import psycopg2
 import psycopg2.extensions
+from dotenv import load_dotenv # <-- TAMBAHAN
+
+# --- Muat environment variables dari .env file ---
+# Ini harus dipanggil sebelum mengakses os.getenv()
+# Sesuai dengan 'python-dotenv' di requirements.txt
+load_dotenv() 
+# --------------------------------------------------
 
 # --- KONFIGURASI DAN IMPORT DENGAN KOREKSI PATH ---
 try:
     file_path = Path(__file__).resolve()
     # 1. Dapatkan parent dari 'backend', yaitu '/app'
-    PROJECT_ROOT = file_path.parent.parent 
+    PROJECT_ROOT = file_path.parent.parent
     # 2. Tambahkan '/app' ke sys.path
     sys.path.insert(0, str(PROJECT_ROOT))
 
@@ -21,8 +28,17 @@ try:
 except ImportError as e:
     print(f"❌ FATAL ERROR: Gagal mengimpor utilitas atau menentukan root: {e}")
     MODEL_NAME = "VGG-Face"
+    EMBEDDING_DIM = 512 # Pastikan ini sesuai dengan model Anda
+    print(f"     -> Menggunakan fallback: MODEL_NAME='{MODEL_NAME}', EMBEDDING_DIM={EMBEDDING_DIM}")
+except NameError:
+    # Fallback jika dijalankan di lingkungan non-file (misal: notebook)
+    print("⚠️ Peringatan: __file__ tidak terdefinisi. Menggunakan CWD sebagai PROJECT_ROOT.")
+    PROJECT_ROOT = Path.cwd()
+    # Asumsi struktur standar jika utils gagal
+    MODEL_NAME = "VGG-Face"
     EMBEDDING_DIM = 512
-    print(f"   -> Menggunakan fallback: MODEL_NAME='{MODEL_NAME}', EMBEDDING_DIM={EMBEDDING_DIM}")
+    print(f"     -> Menggunakan fallback: MODEL_NAME='{MODEL_NAME}', EMBEDDING_DIM={EMBEDDING_DIM}")
+
 
 # --- KONFIGURASI PROYEK ---
 CSV_MASTER_PATH = PROJECT_ROOT / "interns.csv"
@@ -54,12 +70,14 @@ def connect_db():
             port=DB_PORT
         )
         try:
+            # Daftarkan pgvector extension untuk psycopg2
             with conn.cursor() as cur:
                 cur.execute("SELECT oid FROM pg_type WHERE typname = 'vector'")
                 vector_oid = cur.fetchone()[0]
 
             def cast_vector(data, cur):
                 if data is None: return None
+                # Bersihkan kurung [] atau {} yang mungkin ada
                 cleaned_data = data.strip('{}[]')
                 return np.array([float(x.strip()) for x in cleaned_data.split(',')])
 
@@ -68,12 +86,13 @@ def connect_db():
                 conn
             )
         except Exception as e:
-             print(f"   ⚠️ PERINGATAN: Gagal mendaftarkan tipe vector. Error: {e}")
+            print(f"     ⚠️ PERINGATAN: Gagal mendaftarkan tipe vector. Error: {e}")
+            print("     -> Pastikan ekstensi 'vector' sudah di-CREATE di database.")
 
         return conn
     except psycopg2.Error as e:
         print(f"❌ ERROR: Gagal koneksi ke Database: {e}")
-        print(f"   -> Mencoba terhubung ke {DB_HOST}:{DB_PORT}...")
+        print(f"     -> Mencoba terhubung ke {DB_USER}@{DB_HOST}:{DB_PORT}...")
         sys.exit(1) # Gagal keras agar subprocess mengembalikan error
 
 def upsert_intern_and_get_id(conn, name: str, instansi: str, kategori: str) -> int:
@@ -104,9 +123,9 @@ def load_master_data():
     """Memuat interns.csv Master Data, menggunakan Image_Folder sebagai kunci."""
     master_data = {}
     if not CSV_MASTER_PATH.exists():
-         print(f"❌ ERROR: File Master CSV tidak ditemukan di: {CSV_MASTER_PATH}")
-         print("   -> Pastikan file interns.csv ada di root proyek.")
-         sys.exit(1)
+        print(f"❌ ERROR: File Master CSV tidak ditemukan di: {CSV_MASTER_PATH}")
+        print("     -> Pastikan file interns.csv ada di root proyek.")
+        sys.exit(1)
     try:
         with open(CSV_MASTER_PATH, mode='r', encoding='utf-8') as file:
             reader = csv.DictReader(file)
@@ -148,7 +167,7 @@ def index_data_incremental():
 
     print("==================================================")
     print(f"🧠 SCRIPT INDEXING INCREMENTAL (DeepFace/{MODEL_NAME} - {EMBEDDING_DIM}D)")
-    print(f"   Dataset Path: {DATASET_PATH}")
+    print(f"     Dataset Path: {DATASET_PATH}")
     print("==================================================")
 
     intern_ids_to_recalculate = set()
@@ -171,7 +190,7 @@ def index_data_incremental():
             continue
 
         if folder_name not in master_data:
-            print(f"   ⚠️ PERINGATAN: Folder '{folder_name}' diabaikan (tidak ada di CSV).")
+            print(f"     ⚠️ PERINGATAN: Folder '{folder_name}' diabaikan (tidak ada di CSV).")
             skipped_folders += 1
             continue
 
@@ -192,11 +211,11 @@ def index_data_incremental():
 
             # B. Ambil list file yang sudah ada di DB
             existing_paths = get_existing_file_paths(conn, intern_id)
-            print(f"\n   -> Memproses {person_name} (ID: {intern_id})... {len(existing_paths)} file sudah ada.")
+            print(f"\n     -> Memproses {person_name} (ID: {intern_id})... {len(existing_paths)} file sudah ada.")
 
             # C. Proses gambar baru saja
             image_files = [f for f in sorted(os.listdir(person_dir)) if f.lower().endswith(('.jpg', '.jpeg', '.png'))]
-            print(f"     Ditemukan {len(image_files)} file gambar.")
+            print(f"        Ditemukan {len(image_files)} file gambar.")
 
             for filename in image_files:
                 # Gunakan path relatif dari PROJECT_ROOT untuk konsistensi
@@ -205,21 +224,20 @@ def index_data_incremental():
 
                 # Cek jika path RELATIF sudah ada
                 if relative_filepath in existing_paths:
-                    # print(f"     [SKIP] {filename} sudah di database.")
+                    # print(f"       [SKIP] {filename} sudah di database.")
                     continue
 
                 try:
-                    # print(f"     [PROSES] {filename}")
+                    # print(f"       [PROSES] {filename}")
                     representations = DeepFace.represent(
                         img_path=absolute_filepath,
                         model_name=MODEL_NAME,
                         enforce_detection=True,
-                        detector_backend='opencv' # Menggunakan opencv (sudah diubah)
+                        detector_backend='opencv' 
                     )
                     
                     # --- PERBAIKAN BUG 'float' object is not iterable ---
-                    # (Logika ini disalin dari perbaikan utils.py)
-                    
+                    # (Penting untuk deepface==0.0.75)
                     embedding_vector = None
                     if isinstance(representations, list) and len(representations) > 0:
                         if isinstance(representations[0], dict):
@@ -229,37 +247,35 @@ def index_data_incremental():
                             # Kasus Bug (1 wajah): [0.1, 0.2, 0.3, ...]
                             embedding_vector = representations # Ini sudah flat list
                         else:
-                             print(f"     [SKIP] Format output DeepFace tidak dikenal untuk {filename}.")
+                            print(f"        [SKIP] Format output DeepFace tidak dikenal untuk {filename}.")
                     # --- AKHIR PERBAIKAN ---
-
 
                     if embedding_vector is not None:
                         # Pastikan dimensinya benar
                         if len(embedding_vector) != EMBEDDING_DIM:
-                             print(f"     [ERROR] Dimensi embedding salah ({len(embedding_vector)}D) untuk {filename}.")
-                             continue
+                            print(f"        [ERROR] Dimensi embedding salah ({len(embedding_vector)}D, seharusnya {EMBEDDING_DIM}D) untuk {filename}.")
+                            continue
 
                         vector_string = "[" + ",".join(map(str, embedding_vector)) + "]"
                         # Simpan path RELATIF ke DB
                         embeddings_to_insert.append((intern_id, person_name, instansi_value, kategori_value, relative_filepath, vector_string))
                         person_new_count += 1
                     else:
-                         print(f"     [SKIP] Tidak ada embedding dihasilkan untuk {filename}.")
-
+                        print(f"        [SKIP] Tidak ada embedding dihasilkan untuk {filename}.")
 
                 except ValueError as ve:
-                     if 'Face could not be detected' in str(ve):
-                         print(f"     [SKIP] Wajah tidak terdeteksi di {filename}.")
-                     else:
-                         print(f"     [ERROR] Gagal memproses {filename}. Detail: {ve}")
+                    if 'Face could not be detected' in str(ve):
+                        print(f"        [SKIP] Wajah tidak terdeteksi di {filename}.")
+                    else:
+                        print(f"        [ERROR] Gagal memproses {filename}. Detail: {ve}")
                 except Exception as e:
-                    # Ini akan menangkap error 'float' is not iterable
-                    print(f"     [ERROR] Gagal memproses {filename}. Detail: {e}")
+                    # Ini akan menangkap error 'float' is not iterable jika logika di atas gagal
+                    print(f"        [ERROR] Gagal memproses {filename}. Detail: {e}")
 
         except Exception as e:
-             conn.rollback()
-             print(f"❌ FATAL ERROR: Gagal memproses intern {person_name}. Detail: {e}")
-             continue # Lanjut ke folder berikutnya
+            conn.rollback()
+            print(f"❌ FATAL ERROR: Gagal memproses intern {person_name}. Detail: {e}")
+            continue # Lanjut ke folder berikutnya
 
         # D. INSERT BATCH EMBEDDING BARU
         if embeddings_to_insert:
@@ -268,15 +284,15 @@ def index_data_incremental():
                 cur.executemany(insert_query, embeddings_to_insert)
                 conn.commit()
                 total_new_embeddings += person_new_count
-                print(f"   ✅ Selesai: {person_new_count} embeddings BARU disimpan untuk {person_name}.")
+                print(f"     ✅ Selesai: {person_new_count} embeddings BARU disimpan untuk {person_name}.")
             except Exception as db_e:
                 conn.rollback()
                 print(f"❌ FATAL ERROR DB: Gagal menyimpan embeddings untuk {person_name}. Detail: {db_e}")
         else:
             if image_files: # Hanya cetak jika ada gambar tapi tidak ada yang baru
-                 print(f"     [INFO] Tidak ada embeddings baru yang diproses untuk {person_name}.")
+                print(f"        [INFO] Tidak ada embeddings baru yang diproses untuk {person_name}.")
             else:
-                 print(f"     [INFO] Tidak ada file gambar ditemukan untuk {person_name}.")
+                print(f"        [INFO] Tidak ada file gambar ditemukan untuk {person_name}.")
 
 
     print(f"\n✅ Selesai memproses {processed_folders} folder. {skipped_folders} folder diabaikan (tidak ada di CSV).")
@@ -300,7 +316,7 @@ def index_data_incremental():
             results = cur.fetchall()
 
             if not results:
-                print(f"   ⚠️ Tidak ada embedding ditemukan untuk Intern ID {intern_id}. Centroid dilewati.")
+                print(f"     ⚠️ Tidak ada embedding ditemukan untuk Intern ID {intern_id}. Centroid dilewati.")
                 continue
 
             name, instansi, kategori = results[0][0], results[0][1], results[0][2]
@@ -311,18 +327,18 @@ def index_data_incremental():
                 if embeddings_array.ndim == 1: # Jika hanya 1 embedding
                     embeddings_array = embeddings_array.reshape(1, -1)
             except Exception as e:
-                print(f"   ❌ ERROR: Gagal stack embeddings untuk {name}. Error: {e}")
+                print(f"     ❌ ERROR: Gagal stack embeddings untuk {name}. Error: {e}")
                 continue
 
 
             centroid_vector = np.mean(embeddings_array, axis=0)
 
-            # Normalisasi Centroid (opsional tapi bagus untuk cosine distance)
+            # Normalisasi Centroid (penting untuk cosine distance)
             norm = np.linalg.norm(centroid_vector)
             if norm > 1e-6: # Hindari pembagian dengan nol
                 centroid_vector = centroid_vector / norm
             else:
-                print(f"   ⚠️ Peringatan: Centroid untuk {name} mendekati nol. Normalisasi dilewati.")
+                print(f"     ⚠️ Peringatan: Centroid untuk {name} mendekati nol. Normalisasi dilewati.")
 
             centroid_str = "[" + ",".join(map(str, centroid_vector)) + "]"
 
@@ -341,19 +357,19 @@ def index_data_incremental():
                     (intern_id, name, instansi, kategori, centroid_str)
                 )
                 conn.commit()
-                print(f"   ✅ Centroid {name} berhasil diperbarui dari {len(results)} embeddings.")
+                print(f"     ✅ Centroid {name} berhasil diperbarui dari {len(results)} embeddings.")
                 recalculated_count += 1
             except Exception as e:
                 conn.rollback()
-                print(f"   ❌ ERROR: Gagal menyimpan centroid untuk {name}: {e}")
+                print(f"     ❌ ERROR: Gagal menyimpan centroid untuk {name}: {e}")
 
     conn.close()
 
     print("\n" + "="*50)
     print(f"🎉 ALUR KERJA LENGKAP!")
-    print(f"   Total {total_new_embeddings} embedding baru ditambahkan.")
+    print(f"     Total {total_new_embeddings} embedding baru ditambahkan.")
     if intern_ids_to_recalculate:
-        print(f"   Total {recalculated_count} centroid dihitung ulang/diperbarui.")
+        print(f"     Total {recalculated_count} centroid dihitung ulang/diperbarui.")
     print("="*50)
 
 if __name__ == "__main__":
